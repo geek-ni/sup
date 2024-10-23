@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление пропусками - Админ-панель</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        :root {
+            --accent-color: #0ba810;
+            --accent-color-dark: #307305;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f0f0;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: linear-gradient(to bottom, #ffffff, #f0f0f0);
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1), 0 6px 6px rgba(0,0,0,0.1);
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        h1, h2 {
+            color: #303030;
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.1);
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.7);
+            border: 1px solid #e0e0e0;
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.7);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        input, button {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            background: #fff;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        input:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+        button {
+            background: var(--accent-color);
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            text-shadow: 0 1px 0 rgba(0,0,0,0.2);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button:hover {
+            background: var(--accent-color-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        th {
+            background: var(--accent-color);
+            color: #fff;
+            font-weight: bold;
+            text-shadow: 0 1px 0 rgba(0,0,0,0.2);
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0,123,255,0.3);
+            border-radius: 50%;
+            border-top-color: var(--accent-color);
+            animation: spin 1s ease-in-out infinite;
+        }
+        #logFileSelect {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            background: #fff;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        #logFileSelect:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+        #logContent {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #f9f9f9;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .analytics {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.7);
+            border: 1px solid #e0e0e0;
+            margin-bottom: 20px;
+        }
+        .chart-container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        .chart {
+            width: 48%;
+            background: #f9f9f9;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+        }
+        #loadingOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        #loadingOverlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        .lds-ripple {
+            display: inline-block;
+            position: relative;
+            width: 80px;
+            height: 80px;
+        }
+        .lds-ripple div {
+            position: absolute;
+            border: 4px solid var(--accent-color);
+            opacity: 1;
+            border-radius: 50%;
+            animation: lds-ripple 1s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+        }
+        .lds-ripple div:nth-child(2) {
+            animation-delay: -0.5s;
+        }
+        @keyframes lds-ripple {
+            0% {
+                top: 36px;
+                left: 36px;
+                width: 0;
+                height: 0;
+                opacity: 1;
+            }
+            100% {
+                top: 0px;
+                left: 0px;
+                width: 72px;
+                height: 72px;
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="loadingOverlay">
+        <div class="lds-ripple"><div></div><div></div></div>
+    </div>
+    <div class="container">
+        <h1>Управление пропусками</h1>
+
+        <div class="analytics">
+            <h2>Аналитика пропусков</h2>
+            <div class="chart-container">
+                <div class="chart">
+                    <canvas id="passesChart"></canvas>
+                </div>
+                <div class="chart">
+                    <canvas id="usageChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Управление</h2>
+            <div class="container" style="margin-top: 10px;">
+                <h3>Добавить новый пропуск</h3>
+                <form id="addPassForm">
+                    <div class="form-group">
+                        <input type="text" id="cardNumber" placeholder="Номер карты" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="name" placeholder="Имя" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="datetime-local" id="expiresAt" required>
+                    </div>
+                    <button type="submit">Добавить</button>
+                </form>
+                <button id="getNewCardButton" style="margin-top: 10px;">Получить новый номер карты</button>
+            </div>
+            <div class="container" style="margin-top: 10px;">
+                <h3>Дверь</h3>
+                <button id="sendOpenCommand" style="margin-top: 10px;">Открыть дверь</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Логи</h2>
+            <div id="logContent"></div>
+            <button id="refreshLogsButton">Обновить логи</button>
+            <select id="logFileSelect" style="margin-top: 10px;"></select>
+            <button id="downloadLogButton" style="margin-top: 10px;">Скачать выбранный лог</button>
+        </div>
+
+        <div class="card">
+            <h2>Список пропусков</h2>
+            <table id="passesList">
+                <thead>
+                    <tr>
+                        <th>Номер карты</th>
+                        <th>Имя</th>
+                        <th>Дата создания</th>
+                        <th>Срок действия</th>
+                        <th>Последнее использование</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        let passesChart = null;
+        let usageChart = null;
+
+        function showLoading() {
+            loadingOverlay.classList.add('active');
+        }
+
+        function hideLoading() {
+            loadingOverlay.classList.remove('active');
+        }
+
+        // Функция для получения списка пропусков
+        async function fetchPasses() {
+            showLoading();
+            try {
+                const response = await fetch(`${API_URL}/passes/`);
+                if (!response.ok) {
+                    throw new Error('Ошибка при загрузке пропусков');
+                }
+                const passes = await response.json();
+                const tbody = document.querySelector('#passesList tbody');
+                tbody.innerHTML = '';
+                passes.forEach(pass => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${pass.card_number}</td>
+                        <td>${pass.name}</td>
+                        <td>${new Date(pass.created_at).toLocaleString()}</td>
+                        <td>${new Date(pass.expires_at).toLocaleString()}</td>
+                        <td>${pass.last_used ? new Date(pass.last_used).toLocaleString() : 'Не использовался'}</td>
+                        <td>
+                            <button onclick="editPass('${pass.card_number}')">Изменить</button>
+                            <button onclick="deletePass('${pass.card_number}')">Удалить</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                updateCharts(passes);
+            } catch (error) {
+                console.error('Ошибка при загрузке пропусков:', error);
+                alert('Произошла ошибка при загрузке пропусков: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Функция для добавления нового пропуска
+        document.getElementById('addPassForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showLoading();
+            try {
+                const formData = {
+                    card_number: document.getElementById('cardNumber').value,
+                    name: document.getElementById('name').value,
+                    expires_at: new Date(document.getElementById('expiresAt').value).toISOString()
+                };
+                const response = await fetch(`${API_URL}/passes/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                if (!response.ok) {
+                    throw new Error('Ошибка при добавлении пропуска');
+                }
+                await fetchPasses();
+                alert('Пропуск успешно добавлен');
+                document.getElementById('addPassForm').reset();
+            } catch (error) {
+                console.error('Ошибка при добавлении пропуска:', error);
+                alert('Произошла ошибка при добавлении пропуска: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        });
+
+        // Функция для редактирования пропуска
+        async function editPass(cardNumber) {
+            const newName = prompt("Введите новое имя (оставьте пустым, если не хотите менять):");
+            const newExpiresAt = prompt("Введите новый срок действия (ГГГГ-ММ-ДД) или оставьте пустым:");
+
+            const updateData = {};
+            if (newName) updateData.name = newName;
+            if (newExpiresAt) updateData.expires_at = new Date(newExpiresAt).toISOString();
+
+            showLoading();
+            try {
+                const response = await fetch(`${API_URL}/passes/${cardNumber}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updateData)
+                });
+                if (!response.ok) {
+                    throw new Error('Ошибка при обновлении пропуска');
+                }
+                await fetchPasses();
+                alert('Пропуск успешно обновлен');
+            } catch (error) {
+                console.error('Ошибка при обновлении пропуска:', error);
+                alert('Произошла ошибка при обновлении пропуска: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Функция для удаления пропуска
+        async function deletePass(cardNumber) {
+            if (!confirm('Вы уверены, что хотите удалить этот пропуск?')) {
+                return;
+            }
+            showLoading();
+            try {
+                const response = await fetch(`${API_URL}/passes/${cardNumber}`, { method: 'DELETE' });
+                if (!response.ok) {
+                    throw new Error('Ошибка при удалении пропуска');
+                }
+                await fetchPasses();
+                alert('Пропуск успешно удален');
+            } catch (error) {
+                console.error('Ошибка при удалении пропуска:', error);
+                alert('Произошла ошибка при удалении пропуска: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Функция для получения нового номера карты
+        document.getElementById('getNewCardButton').addEventListener('click', async () => {
+            showLoading();
+            try {
+                const response = await fetch(`${API_URL}/wait-for-card`);
+                const data = await response.json();
+                if (data.card_number) {
+                    document.getElementById('cardNumber').value = data.card_number;
+                    alert('Получен новый номер карты: ' + data.card_number);
+                } else if (data.error) {
+                    alert('Не удалось получить номер новой карты: ' + data.error);
+                } else {
+                    alert('Не удалось получить номер новой карты. Попробуйте еще раз.');
+                }
+            } catch (error) {
+                console.error('Ошибка при получении номера новой карты:', error);
+                alert('Произошла ошибка при получении номера новой карты.');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        // Функция для открытия двери с кнопки
+        document.getElementById('sendOpenCommand').addEventListener('click', async () => {
+            showLoading();
+            try {
+                const response = await fetch(`${API_URL}/open-door`);
+                const data = await response.json();
+                if (data.message) {
+                    alert(data.message);
+                } else if (data.error) {
+                    alert('Ошибка при открытии двери: ' + data.error);
+                } else {
+                    alert('Получен неожиданный ответ от сервера');
+                }
+            } catch (error) {
+                console.error('Не удалось отправить запрос на открытие двери.', error);
+                alert('Произошла ошибка при отправке запроса на открытие двери.');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        // Функция для обновления текущих логов
+        async function refreshLogs() {
+            try {
+                const response = await fetch(`${API_URL}/logs/current`);
+                const data = await response.json();
+                document.getElementById('logContent').innerText = data.log_content;
+            } catch (error) {
+                console.error('Ошибка при загрузке логов:', error);
+            }
+        }
+
+        // Функция для загрузки списка файлов логов
+        async function loadLogFiles() {
+            try {
+                const response = await fetch(`${API_URL}/logs/files`);
+                const data = await response.json();
+                const select = document.getElementById('logFileSelect');
+                select.innerHTML = '';
+                data.log_files.forEach(file => {
+                    const option = document.createElement('option');
+                    option.value = file;
+                    option.textContent = file;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Ошибка при загрузке списка файлов логов:', error);
+            }
+        }
+
+        // Функция для скачивания выбранного файла лога
+        async function downloadSelectedLog() {
+            const selectedFile = document.getElementById('logFileSelect').value;
+            if (selectedFile) {
+                window.location.href = `${API_URL}/logs/download/${selectedFile}`;
+            } else {
+                alert('Пожалуйста, выберите файл лога для скачивания');
+            }
+        }
+
+
+
+        // Функция для обновления графиков
+        function updateCharts(passes) {
+            const ctx1 = document.getElementById('passesChart').getContext('2d');
+            const ctx2 = document.getElementById('usageChart').getContext('2d');
+
+            // Уничтожаем существующие графики, если они есть
+            if (passesChart) {
+                passesChart.destroy();
+            }
+            if (usageChart) {
+                usageChart.destroy();
+            }
+
+            // График статуса пропусков
+            passesChart = new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Активные', 'Просроченные'],
+                    datasets: [{
+                        data: [
+                            passes.filter(p => new Date(p.expires_at) > new Date()).length,
+                            passes.filter(p => new Date(p.expires_at) <= new Date()).length
+                        ],
+                        backgroundColor: ['#4CAF50', '#FFA726']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Статус пропусков'
+                        }
+                    }
+                }
+            });
+
+            // График использования пропусков
+            const usageData = passes
+                .filter(p => p.last_used)
+                .map(p => ({ x: new Date(p.last_used), y: 1 }))
+                .sort((a, b) => a.x - b.x);
+
+            const usageByDay = usageData.reduce((acc, curr) => {
+                const day = curr.x.toISOString().split('T')[0];
+                acc[day] = (acc[day] || 0) + 1;
+                return acc;
+            }, {});
+
+            const chartData = Object.entries(usageByDay).map(([date, count]) => ({ x: new Date(date), y: count }));
+
+            usageChart = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    datasets: [{
+                        label: 'Использование пропусков',
+                        data: chartData,
+                        backgroundColor: '#2196F3'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Использование пропусков по дням'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Количество использований'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        // Добавляем обработчики событий
+        document.getElementById('refreshLogsButton').addEventListener('click', refreshLogs);
+        document.getElementById('downloadLogButton').addEventListener('click', downloadSelectedLog);
+
+        // Обновляем логи и список файлов при загрузке страницы
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshLogs();
+            loadLogFiles();
+            fetchPasses();
+            setInterval(refreshLogs, 5000); // Обновляем логи каждые 5 секунд
+        });
+    </script>
+</body>
+</html>

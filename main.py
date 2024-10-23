@@ -1,4 +1,4 @@
-logo = """
+logo = r"""
   _______ ___ ___ _______                          
  |   _   |   Y   |   _   |                        
  |.  1___|   1   |.  |   |                        
@@ -10,21 +10,23 @@ logo = """
 [API v2] Usov Ivan, 2024.
 """
 
+import asyncio
 import os
-from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
+from contextlib import asynccontextmanager
+from datetime import datetime
+
+from colorama import Back, Fore, Style, init
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-import asyncio
-from database import SessionLocal, engine
-from models import Base, Pass
-from schemas import PassCreate, PassUpdate, PassInDB
-from arduino_controller import ArduinoController
 from starlette.responses import FileResponse
+
+from arduino_controller import ArduinoController
 from config import settings
-from datetime import datetime
+from database import SessionLocal, engine
 from logger import logger
-from colorama import init, Fore, Back, Style
-from contextlib import asynccontextmanager
+from models import Base, Pass
+from schemas import PassCreate, PassInDB, PassUpdate
 
 Base.metadata.create_all(bind=engine)
 
@@ -73,9 +75,9 @@ app.add_middleware(
 )
 
 
-@app.get('/')
+@app.get("/")
 async def index():
-    return FileResponse('index.html')
+    return FileResponse("index.html")
 
 
 @app.get("/logs/current")
@@ -107,7 +109,9 @@ async def create_pass(pass_data: PassCreate, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         logger.log(f"Ошибка при создании пропуска: {str(e)}")
-        raise HTTPException(status_code=400, detail=f"Ошибка при создании пропуска: {str(e)}")
+        raise HTTPException(
+            status_code=400, detail=f"Ошибка при создании пропуска: {str(e)}"
+        )
     return db_pass
 
 
@@ -149,7 +153,9 @@ async def delete_pass(card_number: str, db: Session = Depends(get_db)):
 
 
 @app.put("/passes/{card_number}", response_model=PassInDB)
-async def update_pass(card_number: str, pass_data: PassUpdate, db: Session = Depends(get_db)):
+async def update_pass(
+    card_number: str, pass_data: PassUpdate, db: Session = Depends(get_db)
+):
     db_pass = db.query(Pass).filter(Pass.card_number == card_number).first()
     if db_pass:
         for key, value in pass_data.dict(exclude_unset=True).items():
@@ -187,9 +193,9 @@ async def wait_for_card():
 
 async def process_nfc_data(card_number: str):
     try:
-      db = next(get_db())
+        db = next(get_db())
     except Exception as e:
-      logger.log(f"An Critical Error with DB; Error: {e}")
+        logger.log(f"An Critical Error with DB; Error: {e}")
     try:
         await check_pass_and_open_door(card_number, db)
     finally:
@@ -202,7 +208,7 @@ async def nfc_processing_task():
             data = await arduino_controller._read_serial()
             if data.startswith("NFC:"):
                 card_number = data[4:].strip()
-                if card_number =='reinitialized':
+                if card_number == "reinitialized":
                     logger.log(f"Модуль NFC переинициализирован", "ARDUINO")
                 else:
                     logger.log(f"Считали карту: {card_number}", "ARDUINO")

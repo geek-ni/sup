@@ -15,7 +15,8 @@ class Logger:
             intro = self._get_intro()
             f.write(intro)
         return open(file_path, "a")
-
+        
+    @staticmethod
     def _get_intro(self):
         with open("intro.txt", "r") as intro_file:
             intro = intro_file.read()

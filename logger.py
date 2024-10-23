@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 
+
 class Logger:
     def __init__(self, log_dir="Logs"):
         self.log_dir = log_dir
@@ -20,7 +21,9 @@ class Logger:
         with open("intro.txt", "r") as intro_file:
             intro = intro_file.read()
         creation_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        intro = intro.replace("[@] Creation date: ", f"[@] Creation date: {creation_date}\n\n")
+        intro = intro.replace(
+            "[@] Creation date: ", f"[@] Creation date: {creation_date}\n\n"
+        )
         return intro
 
     def log(self, message, source="SYSTEM"):
@@ -34,6 +37,11 @@ class Logger:
             return f.read()
 
     def get_all_log_files(self):
-        return [f for f in os.listdir(self.log_dir) if f.startswith("log_") and f.endswith(".txt")]
+        return [
+            f
+            for f in os.listdir(self.log_dir)
+            if f.startswith("log_") and f.endswith(".txt")
+        ]
+
 
 logger = Logger()

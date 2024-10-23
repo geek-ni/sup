@@ -1,8 +1,11 @@
-import serial
 import asyncio
 from typing import Optional
+
+import serial
+
 from config import settings
 from logger import logger
+
 
 class ArduinoController:
     def __init__(self):
@@ -41,7 +44,9 @@ class ArduinoController:
     async def send_command(self, command: str) -> str:
         if not self.arduino:
             logger.log("Попытка отправить команду без подключения к Arduino", "ARDUINO")
-            raise ConnectionError("[!] Нет соединения с Arduino. Вызовите метод connect() сначала.")
+            raise ConnectionError(
+                "[!] Нет соединения с Arduino. Вызовите метод connect() сначала."
+            )
 
         full_command = f"{command}\n"
         self.arduino.write(full_command.encode())

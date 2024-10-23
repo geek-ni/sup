@@ -186,7 +186,10 @@ async def wait_for_card():
 
 
 async def process_nfc_data(card_number: str):
-    db = next(get_db())
+    try:
+      db = next(get_db())
+    except Exception as e:
+      logger.log(f"An Critical Error with DB; Error: {e}")
     try:
         await check_pass_and_open_door(card_number, db)
     finally:
